@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Table from "react-bootstrap/Table";
 
 import Textbox from "./components/textbox/textbox";
@@ -8,17 +8,25 @@ import CustomButton from "./components/button/button";
 import "./App.css";
 
 function App() {
-  let subTotal = 0;
-  const [cartItems, setCartItems] = useState([]);
+  const [cartItems, setCartItems] = useState(() => {
+    const savedCartItems = localStorage.getItem("cartItems");
+    return savedCartItems ? JSON.parse(savedCartItems) : [];
+  });
   const [txtName, setTxtName] = useState("");
   const [textPrice, setTextPrice] = useState("");
   const [textQuantity, setTextQuantity] = useState("");
-  const[shipping, setShippingFee] = useState(0);
-  const towns = ["Tubigon" , "Calape"] ;
+  const [shipping, setShippingFee] = useState(0);
+  const [editingIndex, setEditingIndex] = useState(null);
+  
+  const towns = ["Tubigon", "Calape"];
   const fee = {
-    Tubigon : 30,
-    Calape : 50,
-  }
+    Tubigon: 50,
+    Calape: 100,
+  };
+
+  useEffect(() => {
+    localStorage.setItem("cartItems", JSON.stringify(cartItems));
+  }, [cartItems]);
 
   function onChange(e) {
     const id = e.target.id;
@@ -27,47 +35,63 @@ function App() {
     if (id === "txtName") setTxtName(value);
     if (id === "txtPrice") setTextPrice(value);
     if (id === "txtQuantity") setTextQuantity(value);
-    if(towns.includes(value)) {
+    if (towns.includes(value)) {
       setShippingFee(fee[value]);
     }
   }
 
   function addToChart() {
-    if ((txtName, textPrice, textQuantity)) {
+    if (txtName && textPrice && textQuantity) {
       const item = {
         name: txtName,
-        price: textPrice,
-        quantity: textQuantity,
+        price: parseFloat(textPrice),
+        quantity: parseInt(textQuantity),
       };
-      const newItems = [...cartItems, item];
-      setCartItems(newItems);
+
+      if (editingIndex !== null) {
+        scrollTo(screen.height,screen.height);
+        const updatedItems = cartItems.map((currentItem, index) =>
+          index === editingIndex ? item : currentItem
+        );
+        setCartItems(updatedItems);
+        setEditingIndex(null);
+      } else {
+        scrollTo(screen.height,screen.height);
+        setCartItems([...cartItems, item]);
+      }
+
       setTxtName("");
       setTextPrice("");
       setTextQuantity("");
     }
   }
+
   function clearCart() {
     setCartItems([]);
   }
 
   function deleteItem(itemIndex) {
-    console.log(itemIndex);
-    const cartNewItems=[...cartItems].toSpliced(itemIndex,1);
+    const cartNewItems = [...cartItems].filter((_, index) => index !== itemIndex);
     setCartItems(cartNewItems);
-    // const newItems = cartItems.filter((item,index) => index !== itemIndex);
-    // setCartItems(newItems);
-    // TODO: remove an item in the cartItems state with the given itemIndex
   }
+
   function editItem(itemIndex) {
+    scrollTo(5,5);
+    const item = cartItems[itemIndex];
+    setTxtName(item.name);
+    setTextPrice(item.price);
+    setTextQuantity(item.quantity);
+    setEditingIndex(itemIndex);
   }
+
   function formatCurrency(num) {
-    const formatter = new Intl.NumberFormat("en-US",{
+    const formatter = new Intl.NumberFormat("en-US", {
       style: "currency",
       currency: "PHP",
       minimumFractionDigits: 2,
       maximumFractionDigits: 2,
-      });
-      return formatter.format(num);
+    });
+    return formatter.format(num);
   }
 
   return (
@@ -100,7 +124,7 @@ function App() {
           />
           <div className="d-flex justify-content-center py-2">
             <CustomButton
-              label="add to cart"
+              label={editingIndex !== null ? "Update Item" : "Add to Cart"}
               onClick={addToChart}
               variant="primary"
             />
@@ -110,13 +134,13 @@ function App() {
           <div className="item-container my-5">
             <h3 className="text-center py-3">CART ITEMS</h3>
             <div className="d-flex justify-content-end">
-            <CustomButton 
-                onClick= {clearCart}
-                label="clear"
+              <CustomButton
+                onClick={clearCart}
+                label="Clear"
                 variant="dark"
                 innerClass="m-1"
-                />
-                </div>
+              />
+            </div>
             <Table striped bordered>
               <thead>
                 <tr className="text-capitalize">
@@ -129,10 +153,8 @@ function App() {
                 </tr>
               </thead>
               <tbody>
-
                 {cartItems.map((item, index) => {
                   const total = item.price * item.quantity;
-                  subTotal += total;
                   return (
                     <tr key={index}>
                       <td>{index + 1}</td>
@@ -142,13 +164,13 @@ function App() {
                       <td>{formatCurrency(total)}</td>
                       <td className="text-center" width={200}>
                         <CustomButton
-                          label="edit"
+                          label="Edit"
                           variant="success"
                           innerClass="m-1"
-                          onClick={() => editItem(item)}
+                          onClick={() => editItem(index)}
                         />
                         <CustomButton
-                          label="delete"
+                          label="Delete"
                           variant="danger"
                           innerClass="m-1"
                           onClick={() => deleteItem(index)}
@@ -159,27 +181,27 @@ function App() {
                 })}
               </tbody>
             </Table>
-            <div className="d-flex justify-content-center"> 
-            <Dropdown
-            id="drpTown"
-            label="town"
-            options={towns}
-            containerClass="p-3"
-            onSelectChange={onChange}
-          />
-          <Dropdown
-            name="drpPayment"
-            label="payment method"
-            options={["gcash", "creditcard"]}
-            containerClass="p-3"
-            onSelectChange={onChange}
-          />
-          </div>
-          <div className="text-p-3">
-            <h3>Subtotal:{formatCurrency(subTotal)}</h3>
-            <h3>Shipping Fee:{formatCurrency(shipping)}</h3>
-            <h3>GrandTotal:{formatCurrency(subTotal + shipping)}</h3>
-          </div>
+            <div className="d-flex justify-content-center">
+              <Dropdown
+                id="drpTown"
+                label="town"
+                options={towns}
+                containerClass="p-3"
+                onSelectChange={onChange}
+              />
+              <Dropdown
+                name="drpPayment"
+                label="payment method"
+                options={["gcash", "creditcard"]}
+                containerClass="p-3"
+                onSelectChange={onChange}
+              />
+            </div>
+            <div className="text-p-3">
+              <h3>Subtotal: {formatCurrency(cartItems.reduce((sum, item) => sum + (item.price * item.quantity), 0))}</h3>
+              <h3>Shipping Fee: {formatCurrency(shipping)}</h3>
+              <h3>Grand Total: {formatCurrency(cartItems.reduce((sum, item) => sum + (item.price * item.quantity), 0) + shipping)}</h3>
+            </div>
           </div>
         )}
       </div>
